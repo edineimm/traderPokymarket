@@ -1,0 +1,30 @@
+# Ambientes Virtuais (Crucial para não sincronizar com OneDrive/GitHub)
+venv/
+.venv/
+env/
+venv.bak/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Variáveis de Ambiente e Segredos (Chaves de API, etc.)
+.env
+
+# Distribuição / Pacotes
+dist/
+build/
+*.egg-info/
+
+# Logs e Bancos de Dados locais
+*.log
+*.sqlite
+
+# IDEs (VS Code ou PyCharm)
+.vscode/
+.idea/
+
+# Arquivos do Sistema
+.DS_Store
+Thumbs.db
