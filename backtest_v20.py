@@ -10,7 +10,7 @@ class EthHullTideV20:
     def __init__(self):
         self.exchange = ccxt.binance()
         self.symbol = 'ETH/USDT'
-        self.limit = 1440 
+        self.limit = 1440 # Aproximadamente 1 dia de dados em 1m
         self.trades = []
         self.df = None
         
