@@ -26,7 +26,7 @@ git push origin master
 
 #### 1. Puxar as novidades:
 ```bash
-git pull origin main
+git pull origin master
 ```
 
 #### 2. Verificar o histórico recente:
