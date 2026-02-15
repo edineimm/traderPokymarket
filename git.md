@@ -22,7 +22,7 @@ git commit -m "ajuste: ..."
 git push origin master
 ```
 
-## 2. Descer Ajustes (Baixar do Servidor)
+## 3. Descer Ajustes (Baixar do Servidor)
 
 #### 1. Puxar as novidades:
 ```bash
