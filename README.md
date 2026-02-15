@@ -22,3 +22,38 @@ Certifique-se de que o Docker está rodando em sua máquina. Clone o repositóri
 ```bash
 git clone [https://github.com/edineimm/trader_pokymarket.git](https://github.com/edineimm/trader_pokymarket.git)
 cd trader_pokymarket
+```
+
+### 2. Docker
+1. Criar ou Atualizar a Imagem
+Sempre que você alterar o `script_v4.py` ou o `requirements.txt`, você precisa reconstruir a imagem:
+
+```bash
+docker compose build
+```
+
+### 2. Iniciar o Bot e Monitorar
+Para subir o bot em segundo plano e começar a ver as predições de 15 minutos imediatamente:
+
+```bash
+# Inicia em segundo plano
+docker compose up -d
+
+# Monitora a execução (logs em tempo real)
+docker compose logs -f --tail 100
+```
+
+### 3. Parar a Execução
+Para desligar o bot com segurança:
+
+```bash
+docker compose down
+```
+
+### 4. Limpeza de Sistema (Manutenção)
+O Docker acumula cache, imagens antigas e containers parados que ocupam muito espaço em disco. Use este comando para fazer uma "faxina":
+Limpeza Geral: Remove containers parados, redes não utilizadas e imagens suspensas.
+
+```bash
+docker system prune
+```
