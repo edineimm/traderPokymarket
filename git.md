@@ -22,7 +22,7 @@ git commit -m "ajuste: ..."
 git push origin master
 ```
 
-## 3. Descer Ajustes (Baixar do Servidor)
+## 2. Descer Ajustes (Baixar do Servidor)
 
 #### 1. Puxar as novidades:
 ```bash
@@ -34,7 +34,7 @@ git pull origin main
 git log --oneline -n 5
 ```
 
-## 2. Comandos Úteis de Manutenção
+## 3. Comandos Úteis de Manutenção
 
 #### * Descartar mudanças locais em um arquivo (Reset):
 ```bash
