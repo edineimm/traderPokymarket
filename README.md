@@ -32,7 +32,7 @@ Sempre que você alterar o `script_v4.py` ou o `requirements.txt`, você precisa
 docker compose build
 ```
 
-### 2. Iniciar o Bot e Monitorar
+### 3. Iniciar o Bot e Monitorar
 Para subir o bot em segundo plano e começar a ver as predições de 15 minutos imediatamente:
 
 ```bash
@@ -43,14 +43,14 @@ docker compose up -d
 docker compose logs -f --tail 100
 ```
 
-### 3. Parar a Execução
+### 4. Parar a Execução
 Para desligar o bot com segurança:
 
 ```bash
 docker compose down
 ```
 
-### 4. Limpeza de Sistema (Manutenção)
+### 5. Limpeza de Sistema (Manutenção)
 O Docker acumula cache, imagens antigas e containers parados que ocupam muito espaço em disco. Use este comando para fazer uma "faxina":
 Limpeza Geral: Remove containers parados, redes não utilizadas e imagens suspensas.
 
