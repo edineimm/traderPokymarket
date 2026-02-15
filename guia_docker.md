@@ -163,6 +163,18 @@ mkdir -p logs
 
 ## 3. Build e Execução
 
+### Validar se o Docker esta funcinoando
+```bash
+sudo systemctl start docker
+```
+
+### Caso não esteja
+```bash
+sudo docker compose build
+sudo usermod -aG docker $USER
+pip install --no-cache-dir -r requirements.txt
+```
+
 ### Construir imagem Docker:
 ```bash
 docker compose build

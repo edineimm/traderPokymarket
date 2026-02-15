@@ -1,5 +1,20 @@
-# Use Python 3.11 slim como base
+# 0. The Base Image (CRITICAL: Must be first!)
 FROM python:3.11-slim
+
+# 1. Set the working directory
+WORKDIR /app
+
+# 2. Copy the requirements file
+COPY requirements.txt .
+
+# 3. Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 4. Copy the rest of your bot's code
+COPY . .
+
+# 5. Run the bot (Adjust 'main.py' to whatever your entry file is)
+# CMD ["python", "main.py"]
 
 # Informações do mantenedor
 LABEL maintainer="seu@email.com"
