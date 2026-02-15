@@ -1,6 +1,7 @@
 import ccxt
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 import time
 import os
 from datetime import datetime, timedelta
@@ -8,134 +9,139 @@ from colorama import Fore, Style, init
 
 init(autoreset=True)
 
-class LiveTraderBotV5:
-    def __init__(self, symbol='BTC/USDT'):
+class EthSentinelV21:
+    def __init__(self):
         self.exchange = ccxt.binance()
-        self.symbol = symbol
-        self.active_trades = [] 
-        self.file_log = "historico_trades_v5.csv"
+        self.symbol = 'ETH/USDT'
+        self.file_log = "historico_trades.csv"
+        self.active_trade = None # Controla se estamos posicionados
         
-        # Cria arquivo se não existir
+        # Cria CSV se não existir
         if not os.path.exists(self.file_log):
             with open(self.file_log, 'w') as f:
-                f.write("Data_Entrada,Tipo,Preco_Entrada,Preco_Saida,Resultado,Lucro_Simulado,Diagnostico\n")
+                f.write("Data,Tipo,Preco_Entrada,Prob_Tatico,Prob_Estrategico,Status\n")
 
-    def obter_dados_mercado(self):
+    def obter_probabilidades_reais(self):
         try:
-            # H1 (Tendência Macro)
-            ohlcv_h1 = self.exchange.fetch_ohlcv(self.symbol, timeframe='1h', limit=50)
-            df_h1 = pd.DataFrame(ohlcv_h1, columns=['ts', 'o', 'h', 'l', 'c', 'v'])
-            ema_h1 = df_h1['c'].ewm(span=20, adjust=False).mean().iloc[-1]
-            trend_h1 = "ALTA" if df_h1['c'].iloc[-1] > ema_h1 else "BAIXA"
+            # Precisamos de pelo menos 60 candles para o cálculo estratégico
+            ohlcv = self.exchange.fetch_ohlcv(self.symbol, timeframe='1m', limit=100)
+            df = pd.DataFrame(ohlcv, columns=['ts', 'o', 'h', 'l', 'c', 'v'])
             
-            # M1 (Tático)
-            ohlcv_m1 = self.exchange.fetch_ohlcv(self.symbol, timeframe='1m', limit=100)
-            df_m1 = pd.DataFrame(ohlcv_m1, columns=['ts', 'o', 'h', 'l', 'c', 'v'])
+            # Cálculo de Hull (Log Returns)
+            log_ret = np.log(df['c'] / df['c'].shift(1))
             
-            return df_m1, trend_h1
+            # Horizonte Tático (30m)
+            mu_30 = log_ret.rolling(window=30).mean().iloc[-1]
+            sigma_30 = log_ret.rolling(window=30).std().iloc[-1]
+            z_30 = (mu_30 * 15) / (sigma_30 * np.sqrt(15))
+            prob_30 = norm.cdf(z_30)
+            
+            # Horizonte Estratégico (60m)
+            mu_60 = log_ret.rolling(window=60).mean().iloc[-1]
+            sigma_60 = log_ret.rolling(window=60).std().iloc[-1]
+            z_60 = (mu_60 * 15) / (sigma_60 * np.sqrt(15))
+            prob_60 = norm.cdf(z_60)
+            
+            preco_atual = df['c'].iloc[-1]
+            
+            return prob_30, prob_60, preco_atual
+            
         except Exception as e:
-            print(f"{Fore.RED}Erro API: {e}")
-            return None, None
+            print(f"{Fore.RED}Erro na API/Cálculo: {e}")
+            return None, None, None
 
-    def calcular_indicadores(self, df):
-        # EMA
-        df['ema_fast'] = df['c'].ewm(span=9, adjust=False).mean()
-        df['ema_slow'] = df['c'].ewm(span=21, adjust=False).mean()
-        
-        # RSI
-        delta = df['c'].diff()
-        gain = (delta.where(delta > 0, 0)).fillna(0)
-        loss = (-delta.where(delta < 0, 0)).fillna(0)
-        rs = gain.ewm(com=13, adjust=False).mean() / loss.ewm(com=13, adjust=False).mean()
-        df['rsi'] = 100 - (100 / (1 + rs))
-
-        # ADX Simples
-        df['tr'] = df[['h', 'l', 'c']].diff().abs().max(axis=1) # Simplificação para performance
-        df['dx'] = 100 * abs(df['h'].diff() - df['l'].diff()) / df['tr'] # DX Aproximado
-        df['adx'] = df['dx'].ewm(span=14).mean() # ADX Suavizado
-        
-        return df.iloc[-1]
-
-    def verificar_saidas(self, preco_atual):
-        removidos = []
-        agora = datetime.now()
-        
-        for trade in self.active_trades:
-            # Checa se passou 15 min
-            if agora >= trade['hora_saida_prevista']:
+    def gerenciar_trade_ativo(self, preco_atual):
+        if self.active_trade:
+            agora = datetime.now()
+            tempo_restante = (self.active_trade['saida'] - agora).total_seconds()
+            
+            if tempo_restante <= 0:
+                # Trade acabou
                 resultado = "LOSS"
                 lucro = -1.0
                 
-                if trade['tipo'] == "CALL (UP)":
-                    if preco_atual > trade['preco_entrada']:
+                if self.active_trade['tipo'] == "CALL":
+                    if preco_atual > self.active_trade['preco']:
                         resultado = "WIN"
                         lucro = 0.85
-                elif trade['tipo'] == "PUT (DOWN)":
-                    if preco_atual < trade['preco_entrada']:
+                elif self.active_trade['tipo'] == "PUT":
+                    if preco_atual < self.active_trade['preco']:
                         resultado = "WIN"
                         lucro = 0.85
-
-                print(f"{Fore.MAGENTA}🏁 FINALIZADO: {trade['tipo']} | Res: {resultado} | PnL: {lucro}")
                 
+                print(f"\n{Fore.MAGENTA}🏁 TRADE FINALIZADO: {resultado} (PnL: {lucro})")
+                
+                # Salva no log
                 with open(self.file_log, 'a') as f:
-                    d_str = trade['hora_entrada'].strftime("%Y-%m-%d %H:%M:%S")
-                    f.write(f"{d_str},{trade['tipo']},{trade['preco_entrada']},{preco_atual},{resultado},{lucro},Execucao_Unica\n")
+                    d = self.active_trade['entrada'].strftime("%Y-%m-%d %H:%M:%S")
+                    f.write(f"{d},{self.active_trade['tipo']},{self.active_trade['preco']},{self.active_trade['p30']:.2f},{self.active_trade['p60']:.2f},{resultado}\n")
                 
-                removidos.append(trade)
-        
-        for r in removidos:
-            self.active_trades.remove(r)
+                self.active_trade = None # Libera para novo trade
+            else:
+                # Status de espera
+                mins = int(tempo_restante // 60)
+                secs = int(tempo_restante % 60)
+                print(f"\r🔒 Trade em andamento ({self.active_trade['tipo']})... Faltam {mins:02d}:{secs:02d}", end="")
 
-    def executar_ciclo(self):
-        print(f"{Fore.YELLOW}🛡️ Bot V5 Iniciado (Modo: Single Shot).")
+    def executar(self):
+        print(f"{Fore.YELLOW}🚀 ETH SENTINEL V21 INICIADO")
+        print(f"Estratégia: Hull Tide Alignment (30m + 60m)")
+        print(f"Alvo: Prob Tática > 60% e Estratégica > 50%")
+        print("-" * 50)
         
         while True:
             try:
-                df_m1, trend_h1 = self.obter_dados_mercado()
+                # 1. Pega dados frescos
+                p30, p60, preco = self.obter_probabilidades_reais()
                 
-                if df_m1 is not None:
-                    candle = self.calcular_indicadores(df_m1)
-                    preco = candle['c']
+                if p30 is not None:
+                    # 2. Gerencia trade aberto (se houver)
+                    if self.active_trade:
+                        self.gerenciar_trade_ativo(preco)
                     
-                    self.verificar_saidas(preco)
-                    
-                    # --- TRAVA DE SEGURANÇA V5 ---
-                    # Se já existe 1 trade aberto, NÃO FAZ NADA.
-                    if len(self.active_trades) > 0:
-                        trade_atual = self.active_trades[0]
-                        tempo_restante = (trade_atual['hora_saida_prevista'] - datetime.now()).seconds // 60
-                        print(f"\r🔒 Trade em andamento ({tempo_restante}m rest). Aguardando conclusão...", end="")
-                    
+                    # 3. Procura nova entrada (se estiver livre)
                     else:
-                        # Só analisa entrada se estiver "Livre"
                         sinal = None
-                        if candle['adx'] > 25:
-                            ema_up = candle['ema_fast'] > candle['ema_slow']
-                            ema_down = candle['ema_fast'] < candle['ema_slow']
-                            
-                            if ema_up and (candle['rsi'] < 70) and trend_h1 == "ALTA":
-                                sinal = "CALL (UP)"
-                            elif ema_down and (candle['rsi'] > 30) and trend_h1 == "BAIXA":
-                                sinal = "PUT (DOWN)"
                         
+                        # --- CÉREBRO V20 ---
+                        # CALL: Tático Forte (>60%) + Estratégico Favorável (>50%)
+                        if (p30 > 0.60) and (p60 > 0.50):
+                            sinal = "CALL"
+                            cor = Fore.GREEN
+                        
+                        # PUT: Tático Fraco (<40%) + Estratégico Favorável (<50%)
+                        elif (p30 < 0.40) and (p60 < 0.50):
+                            sinal = "PUT"
+                            cor = Fore.RED
+                        
+                        # Dashboard em Tempo Real
+                        print(f"\rETH: {preco:.2f} | Tático(30m): {p30:.1%}" + 
+                              f" | Estratégico(60m): {p60:.1%} | Sinal: {sinal if sinal else 'NEUTRO'}", end="")
+                        
+                        # Disparo
                         if sinal:
-                            print(f"\n{Fore.GREEN}⚡ NOVA ENTRADA: {sinal} @ {preco}")
-                            self.active_trades.append({
-                                'hora_entrada': datetime.now(),
-                                'hora_saida_prevista': datetime.now() + timedelta(minutes=15),
+                            print(f"\n{cor}⚡ SINAL CONFIRMADO: {sinal} @ {preco}")
+                            print(f"   Motivo: Alinhamento Estatístico (30m={p30:.2f}, 60m={p60:.2f})")
+                            
+                            self.active_trade = {
+                                'entrada': datetime.now(),
+                                'saida': datetime.now() + timedelta(minutes=15),
                                 'tipo': sinal,
-                                'preco_entrada': preco
-                            })
-                        else:
-                            print(f"\r⏳ Monitorando... BTC: {preco:.2f} | H1: {trend_h1} | ADX: {candle['adx']:.1f}", end="")
+                                'preco': preco,
+                                'p30': p30,
+                                'p60': p60
+                            }
                 
-                time.sleep(30) # Check a cada 30s
+                # Aguarda 30s antes do próximo tick (reduz flood na API)
+                time.sleep(30)
                 
             except KeyboardInterrupt:
+                print("\n🛑 Bot parado pelo usuário.")
                 break
             except Exception as e:
-                print(f"Erro: {e}")
+                print(f"\nErro Crítico: {e}")
                 time.sleep(10)
 
-bot = LiveTraderBotV5()
-bot.executar_ciclo()
+# Start
+bot = EthSentinelV21()
+bot.executar()
