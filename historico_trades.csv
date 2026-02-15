@@ -1,1 +1,6 @@
 Data_Entrada,Tipo,Preco_Entrada,Preco_Saida,Resultado,Lucro_Simulado,Diagnostico
+2026-02-14 22:08:33,CALL (UP),69869.99,69606.58,LOSS,-1.0,Volatilidade/Ruído
+2026-02-14 22:09:33,CALL (UP),69862.83,69572.01,LOSS,-1.0,Volatilidade/Ruído
+2026-02-14 22:10:34,CALL (UP),69872.1,69619.68,LOSS,-1.0,Volatilidade/Ruído
+2026-02-14 22:11:35,CALL (UP),69869.2,69620.0,LOSS,-1.0,Volatilidade/Ruído
+2026-02-14 22:12:35,CALL (UP),69873.8,69612.42,LOSS,-1.0,Volatilidade/Ruído
